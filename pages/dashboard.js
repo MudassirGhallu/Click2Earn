@@ -1,110 +1,106 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useRouter } from 'next/router';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [balance, setBalance] = useState(0.0035); // Example initial value
+  const [clicks, setClicks] = useState(0);
+  const router = useRouter();
 
-  // 1. Fetch User Data
   useEffect(() => {
-    fetchUserData();
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) router.push('/');
+      else setUser(user);
+    };
+    fetchUser();
   }, []);
 
-  async function fetchUserData() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      let { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      setUser(data);
-      checkBonusTimer(data.last_bonus_claim);
-    }
-    setLoading(false);
-  }
-
-  // 2. Ad-Loop Logic (The "Click to Earn" Button)
-  const handleAdClick = () => {
-    // In production, replace this with your random 100 links logic
-    const adLink = "http://adfoc.us/868155112924180"; 
-    window.location.href = adLink; 
-    // Logic to add $0.0001 happens when they return to the site
+  const handleClick = () => {
+    setBalance(prev => prev + 0.0001);
+    setClicks(prev => prev + 1);
   };
 
-  // 3. Bonus Timer Logic (1 Hour)
-  const checkBonusTimer = (lastClaim) => {
-    if (!lastClaim) return;
-    const nextClaim = new Date(lastClaim).getTime() + 3600000;
-    const now = new Date().getTime();
-    if (nextClaim > now) setTimeLeft(Math.floor((nextClaim - now) / 1000));
+  const logout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
   };
 
-  if (loading) return <div className="bg-black text-yellow-500 h-screen flex items-center justify-center">Loading Click2Earn...</div>;
+  if (!user) return <div style={{background:'#f3bc00', height:'100vh'}}></div>;
 
   return (
-    <div className="min-h-screen bg-[#f3bc00] font-sans p-4">
-      {/* Header */}
-      <nav className="flex justify-between items-center bg-[#1a1a1a] p-4 rounded-xl text-white mb-6">
-        <h1 className="font-bold text-xl text-yellow-500">Click2Earn</h1>
-        <div className="flex gap-4 items-center">
-          <span>{user?.username}</span>
-          <button onClick={() => supabase.auth.signOut()} className="text-sm opacity-70">Logout</button>
-        </div>
-      </nav>
+    <div className="dash-container">
+      <style dangerouslySetInnerHTML={{ __html: `
+        .dash-container { background: #f3bc00; min-height: 100vh; font-family: sans-serif; padding: 20px; color: white; }
+        .header { display: flex; justify-content: space-between; align-items: center; color: black; font-weight: bold; margin-bottom: 40px; }
+        .main-layout { display: flex; gap: 40px; justify-content: center; align-items: flex-start; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; }
+        .clicker-section { text-align: center; flex: 1; min-width: 300px; }
+        .click-btn { width: 220px; height: 220px; background: #00a884; border-radius: 50%; border: 15px solid #25d366; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: 0.1s; }
+        .click-btn:active { transform: scale(0.95); }
+        .click-btn span { font-size: 100px; color: white; font-weight: bold; }
+        .stats-section { flex: 1; min-width: 350px; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: #000; border-radius: 30px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .balance-text { font-size: 48px; font-weight: bold; color: #f3bc00; margin: 10px 0; }
+        .mini-stats { display: flex; gap: 15px; margin-top: 20px; }
+        .mini-card { background: #1a1605; flex: 1; padding: 15px; border-radius: 20px; text-align: center; }
+        .btn-green { background: #25d366; color: white; width: 100%; padding: 15px; border-radius: 15px; border: none; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        .grid-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .action-card { background: #262109; padding: 20px; border-radius: 20px; text-align: center; cursor: pointer; color: #f3bc00; font-weight: bold; border: 1px solid #3d3511; }
+        .referral-card { background: #6b5c1d; padding: 20px; border-radius: 20px; border: 1px solid #8e7b2a; }
+        .copy-btn { background: #1a1605; color: white; border: none; width: 100%; padding: 12px; border-radius: 12px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+      `}} />
 
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Left Side: The Main Button */}
-        <div className="flex flex-col items-center justify-center p-10 bg-transparent">
-          <button 
-            onClick={handleAdClick}
-            className="w-48 h-48 bg-[#00a884] rounded-full border-8 border-white shadow-2xl flex items-center justify-center hover:scale-105 transition-transform"
-          >
-            <span className="text-6xl text-white font-bold">T</span>
-          </button>
-          <p className="mt-4 font-bold text-gray-800 text-lg">Click to earn $0.0001</p>
+      <div className="header">
+        <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+          <div style={{background:'#000', padding:'5px', borderRadius:'8px', color:'#f3bc00'}}>⚡</div>
+          <span style={{fontSize:'24px'}}>Click<span style={{opacity:0.7}}>2Earn</span></span>
+        </div>
+        <div style={{display:'flex', gap:'20px', alignItems:'center'}}>
+          <span>👤 {user.email.split('@')[0]}</span>
+          <span onClick={logout} style={{cursor:'pointer'}}>Logout  logout</span>
+        </div>
+      </div>
+
+      <div className="main-layout">
+        <div className="clicker-section">
+          <div className="click-btn" onClick={handleClick}><span>T</span></div>
+          <h2 style={{color:'black', fontWeight:'bold'}}>Click to earn</h2>
         </div>
 
-        {/* Right Side: Stats & Actions */}
-        <div className="space-y-4">
-          {/* Balance Card */}
-          <div className="bg-[#0e0e0e] p-6 rounded-3xl text-white shadow-xl border border-gray-800">
-            <p className="text-gray-400 flex items-center gap-2">💰 Your Balance</p>
-            <h2 className="text-4xl font-bold text-yellow-500 my-2">${user?.balance.toFixed(4)}</h2>
-            <p className="text-xs text-gray-500">Available to withdraw (Min $2.00)</p>
-            
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="bg-[#1a1a1a] p-3 rounded-xl border border-gray-700">
-                <p className="text-xs text-gray-400">Total Clicks</p>
-                <p className="font-bold">{user?.total_clicks}</p>
+        <div className="stats-section">
+          <div className="card">
+            <div style={{display:'flex', alignItems:'center', gap:'10px', opacity:0.7}}>💰 Your Balance</div>
+            <div className="balance-text">${balance.toFixed(4)}</div>
+            <div style={{opacity:0.5, fontSize:'14px'}}>Available to withdraw</div>
+            <div className="mini-stats">
+              <div className="mini-card">
+                <div style={{fontSize:'12px', color:'#f3bc00'}}>Total Clicks</div>
+                <div style={{fontSize:'20px', fontWeight:'bold'}}>{clicks.toLocaleString()}</div>
               </div>
-              <div className="bg-[#1a1a1a] p-3 rounded-xl border border-gray-700">
-                <p className="text-xs text-gray-400">Per Click</p>
-                <p className="font-bold">$0.0001</p>
+              <div className="mini-card">
+                <div style={{fontSize:'12px', color:'#f3bc00'}}>Per Click</div>
+                <div style={{fontSize:'20px', fontWeight:'bold'}}>$0.0001</div>
               </div>
             </div>
-
-            <a href="https://chat.whatsapp.com/F5Zw37pwBPXIJMED3N4KVn" className="mt-4 block w-full bg-[#25d366] text-center py-3 rounded-xl font-bold hover:bg-[#1ebd5b]">
-              Join WhatsApp Group
-            </a>
+            <button className="btn-green">Join WhatsApp Channel</button>
           </div>
 
-          {/* Action Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            <button className="bg-[#1a1a1a] text-white p-4 rounded-2xl text-sm font-semibold hover:bg-black">Withdraw</button>
-            <button 
-              disabled={timeLeft > 0}
-              className="bg-[#1a1a1a] text-white p-4 rounded-2xl text-sm font-semibold hover:bg-black disabled:opacity-50"
-            >
-              {timeLeft > 0 ? `${Math.floor(timeLeft/60)}m` : "Bonus"}
-            </button>
-            <button className="bg-[#1a1a1a] text-white p-4 rounded-2xl text-sm font-semibold hover:bg-black">Leaders</button>
+          <div className="grid-buttons">
+            <div className="action-card">Withdraw</div>
+            <div className="action-card">Bonus</div>
+            <div className="action-card">Leaderboard</div>
+          </div>
+
+          <div className="referral-card">
+            <div style={{fontSize:'14px', marginBottom:'10px'}}>Invite Friends & Earn $0.001</div>
+            <button className="copy-btn" onClick={() => {
+              navigator.clipboard.writeText(`https://clicknearn.netlify.app?ref=${user.id}`);
+              alert("Link Copied!");
+            }}>Copy Referral Link</button>
           </div>
         </div>
       </div>
-      
-      {/* Footer Info */}
-      <footer className="mt-10 text-center text-sm font-medium text-gray-700">
-        <p>1 USD = 280 PKR | Withdraw via Easypaisa / JazzCash / USDT</p>
-      </footer>
     </div>
   );
 }
