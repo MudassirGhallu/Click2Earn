@@ -9,15 +9,10 @@ export default function Auth() {
   const [username, setUsername] = useState('');
   const router = useRouter();
 
-  const validatePassword = (pass) => {
-    // 6 chars, 1 letter, 1 number
-    return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(pass);
-  };
-
   const handleAuth = async (e) => {
     e.preventDefault();
-    if (!validatePassword(password)) {
-      alert("Password must be 6+ digits with at least 1 letter and 1 number.");
+    if (password.length < 6 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      alert("Password must be 6+ chars with 1 letter and 1 number.");
       return;
     }
 
@@ -27,8 +22,7 @@ export default function Auth() {
       else router.push('/dashboard');
     } else {
       const { error } = await supabase.auth.signUp({ 
-        email, password,
-        options: { data: { display_name: username } }
+        email, password, options: { data: { username } }
       });
       if (error) alert(error.message);
       else alert("Signup successful! You can now Login.");
@@ -36,49 +30,123 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0e0c02] flex items-center justify-center p-4">
-      <div className="bg-[#1a1605] w-full max-w-md rounded-[2.5rem] p-10 border border-[#2d260a] shadow-2xl">
-        <div className="flex flex-col items-center mb-10">
-          <div className="bg-[#f3bc00] w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(243,188,0,0.3)]">
-            <span className="text-black text-3xl">⚡</span>
-          </div>
-          <h1 className="text-white text-3xl font-bold tracking-tight">Click2Earn</h1>
+    <div className="auth-container">
+      <style dangerouslySetInnerHTML={{ __html: `
+        .auth-container {
+          background-color: #0e0c02;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: sans-serif;
+          color: white;
+        }
+        .auth-card {
+          background-color: #1a1605;
+          width: 100%;
+          max-width: 400px;
+          padding: 40px;
+          border-radius: 40px;
+          border: 1px solid #2d260a;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+          text-align: center;
+        }
+        .logo-box {
+          background: #f3bc00;
+          width: 60px;
+          height: 60px;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          font-size: 30px;
+          color: black;
+        }
+        .tab-box {
+          background: #0e0c02;
+          padding: 5px;
+          border-radius: 15px;
+          display: flex;
+          margin-bottom: 30px;
+          border: 1px solid #2d260a;
+        }
+        .tab-btn {
+          flex: 1;
+          padding: 12px;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: 0.3s;
+          background: transparent;
+          color: #555;
+        }
+        .tab-btn.active {
+          background: #f3bc00;
+          color: black;
+        }
+        input {
+          width: 100%;
+          background: #0e0c02;
+          border: 1px solid #2d260a;
+          padding: 15px;
+          border-radius: 15px;
+          color: white;
+          margin-bottom: 20px;
+          box-sizing: border-box;
+          outline: none;
+        }
+        input:focus { border-color: #f3bc00; }
+        .submit-btn {
+          width: 100%;
+          background: #f3bc00;
+          color: black;
+          padding: 18px;
+          border-radius: 15px;
+          font-weight: bold;
+          border: none;
+          cursor: pointer;
+          font-size: 16px;
+          margin-top: 10px;
+        }
+        label {
+          display: block;
+          text-align: left;
+          font-size: 12px;
+          color: #777;
+          margin-bottom: 8px;
+          font-weight: bold;
+          text-transform: uppercase;
+        }
+      `}} />
+
+      <div className="auth-card">
+        <div className="logo-box">⚡</div>
+        <h1 style={{marginBottom: '30px'}}>Click2Earn</h1>
+
+        <div className="tab-box">
+          <button className={`tab-btn ${isLogin ? 'active' : ''}`} onClick={() => setIsLogin(true)}>Login</button>
+          <button className={`tab-btn ${!isLogin ? 'active' : ''}`} onClick={() => setIsLogin(false)}>Sign Up</button>
         </div>
 
-        <div className="flex bg-[#0e0c02] rounded-2xl p-1.5 mb-10 border border-[#2d260a]">
-          <button onClick={() => setIsLogin(true)} className={`flex-1 py-3.5 rounded-xl font-bold transition-all ${isLogin ? 'bg-[#f3bc00] text-black shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>Login</button>
-          <button onClick={() => setIsLogin(false)} className={`flex-1 py-3.5 rounded-xl font-bold transition-all ${!isLogin ? 'bg-[#f3bc00] text-black shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>Sign Up</button>
-        </div>
-
-        <form onSubmit={handleAuth} className="space-y-6">
+        <form onSubmit={handleAuth}>
           {!isLogin && (
-            <div>
-              <label className="text-gray-400 text-sm font-medium mb-2.5 block ml-1">Username</label>
-              <div className="relative">
-                <input type="text" placeholder="Enter your username" required className="w-full bg-[#0e0c02] border border-[#2d260a] p-4 rounded-2xl text-white placeholder:text-gray-700 outline-none focus:border-[#f3bc00] transition-colors" onChange={(e) => setUsername(e.target.value)} />
-              </div>
-            </div>
+            <>
+              <label>Username</label>
+              <input type="text" placeholder="Enter username" onChange={(e) => setUsername(e.target.value)} required />
+            </>
           )}
-          <div>
-            <label className="text-gray-400 text-sm font-medium mb-2.5 block ml-1">Email</label>
-            <input type="email" placeholder="Enter your email" required className="w-full bg-[#0e0c02] border border-[#2d260a] p-4 rounded-2xl text-white placeholder:text-gray-700 outline-none focus:border-[#f3bc00] transition-colors" onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-gray-400 text-sm font-medium mb-2.5 block ml-1">Password</label>
-            <input type="password" placeholder="Enter your password" required className="w-full bg-[#0e0c02] border border-[#2d260a] p-4 rounded-2xl text-white placeholder:text-gray-700 outline-none focus:border-[#f3bc00] transition-colors" onChange={(e) => setPassword(e.target.value)} />
-          </div>
+          <label>Email Address</label>
+          <input type="email" placeholder="Enter email" onChange={(e) => setEmail(e.target.value)} required />
+          
+          <label>Password</label>
+          <input type="password" placeholder="Enter password" onChange={(e) => setPassword(e.target.value)} required />
 
-          <button type="submit" className="w-full bg-[#f3bc00] text-black py-4.5 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all mt-4 shadow-[0_10px_20px_rgba(243,188,0,0.15)]">
+          <button type="submit" className="submit-btn">
             {isLogin ? 'Login →' : 'Create Account →'}
           </button>
         </form>
-
-        <p className="text-center mt-8 text-gray-600 text-sm font-medium">
-          {isLogin ? "Don't have an account?" : "Already have an account?"} 
-          <button onClick={() => setIsLogin(!isLogin)} className="text-[#f3bc00] ml-2 hover:underline decoration-2 underline-offset-4">
-            {isLogin ? 'Sign up' : 'Login'}
-          </button>
-        </p>
       </div>
     </div>
   );
