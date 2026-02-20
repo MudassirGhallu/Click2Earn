@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/router';
 
@@ -10,12 +10,21 @@ export default function Auth() {
   const [refCode, setRefCode] = useState('');
   const router = useRouter();
 
+  // Capture referral code from URL automatically
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref) setRefCode(ref);
+  }, []);
+
   const handleAuth = async (e) => {
     e.preventDefault();
+    
     if (!email.endsWith('@gmail.com')) {
       alert("Only @gmail.com addresses are allowed!");
       return;
     }
+    
     if (password.length < 6 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
       alert("Password must be 6+ chars with 1 letter and 1 number.");
       return;
@@ -26,11 +35,31 @@ export default function Auth() {
       if (error) alert(error.message);
       else router.push('/dashboard');
     } else {
-      const { error } = await supabase.auth.signUp({ 
-        email, password, options: { data: { username, referrer: refCode, balance: 0.00 } }
+      // 1. Sign up the user
+      const { data, error } = await supabase.auth.signUp({ 
+        email, password, options: { data: { username } }
       });
-      if (error) alert(error.message);
-      else alert("Signup successful! Please Login.");
+
+      if (error) {
+        alert(error.message);
+      } else {
+        // 2. Create the profile with $0 balance
+        const userId = data.user.id;
+        await supabase.from('profiles').insert([
+          { id: userId, username: username, balance: 0, clicks: 0 }
+        ]);
+
+        // 3. Pay the referrer $0.001 if a code exists
+        if (refCode) {
+          const { data: refUser } = await supabase.from('profiles').select('balance').eq('id', refCode).single();
+          if (refUser) {
+            const newRefBalance = parseFloat(refUser.balance) + 0.001;
+            await supabase.from('profiles').update({ balance: newRefBalance }).eq('id', refCode);
+          }
+        }
+        alert("Account Created! You can now Login.");
+        setIsLogin(true);
+      }
     }
   };
 
@@ -56,11 +85,11 @@ export default function Auth() {
         </div>
         <form onSubmit={handleAuth}>
           {!isLogin && <><label>Username</label><input type="text" placeholder="Username" onChange={(e)=>setUsername(e.target.value)} required /></>}
-          <label>Email (@gmail.com)</label>
-          <input type="email" placeholder="Email" onChange={(e)=>setEmail(e.target.value)} required />
+          <label>Gmail Address</label>
+          <input type="email" placeholder="user@gmail.com" onChange={(e)=>setEmail(e.target.value)} required />
           <label>Password</label>
-          <input type="password" placeholder="Password" onChange={(e)=>setPassword(e.target.value)} required />
-          {!isLogin && <><label>Referral Code (Optional)</label><input type="text" placeholder="Enter Code" onChange={(e)=>setRefCode(e.target.value)} /></>}
+          <input type="password" placeholder="Min 6 chars (1 letter, 1 number)" onChange={(e)=>setPassword(e.target.value)} required />
+          {!isLogin && <><label>Referral ID (Optional)</label><input type="text" value={refCode} placeholder="Enter Code" onChange={(e)=>setRefCode(e.target.value)} /></>}
           <button type="submit" className="submit-btn">{isLogin ? 'Login →' : 'Create Account →'}</button>
         </form>
       </div>
