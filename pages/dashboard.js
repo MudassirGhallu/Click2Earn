@@ -13,12 +13,17 @@ export default function Dashboard() {
 
   async function fetchProfile() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return router.push('/');
+    if (!user) { router.push('/'); return; }
 
+    // Try to get profile
     let { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
     
-    if (!data) { // Create profile if it doesn't exist
-      const { data: newProfile } = await supabase.from('profiles').insert([{ id: user.id, username: user.user_metadata.username, balance: 0, clicks: 0 }]).select().single();
+    // If profile doesn't exist, create it immediately
+    if (!data) {
+      const { data: newProfile, error: insError } = await supabase
+        .from('profiles')
+        .insert([{ id: user.id, username: user.email.split('@')[0], balance: 0, clicks: 0 }])
+        .select().single();
       setProfile(newProfile);
     } else {
       setProfile(data);
@@ -27,75 +32,92 @@ export default function Dashboard() {
   }
 
   const handleClick = async () => {
-    // 1. Open your AdFocus Link
-    window.open('https://adfoc.us/x883472110629532', '_blank');
+    window.open('https://adfoc.us/x883472110629532', '_blank'); // AdFocus Link
+    if (!profile) return;
 
-    // 2. Update Database
     const newBalance = parseFloat(profile.balance) + 0.0001;
-    const newClicks = profile.clicks + 1;
+    const newClicks = parseInt(profile.clicks) + 1;
 
-    const { error } = await supabase.from('profiles').update({ balance: newBalance, clicks: newClicks }).eq('id', profile.id);
+    const { error } = await supabase.from('profiles')
+      .update({ balance: newBalance, clicks: newClicks })
+      .eq('id', profile.id);
     
     if (!error) setProfile({ ...profile, balance: newBalance, clicks: newClicks });
   };
 
   const handleBonus = async () => {
-    alert("Daily Bonus of $0.005 Added!");
     const newBalance = parseFloat(profile.balance) + 0.005;
-    await supabase.from('profiles').update({ balance: newBalance }).eq('id', profile.id);
-    setProfile({ ...profile, balance: newBalance });
+    const { error } = await supabase.from('profiles').update({ balance: newBalance }).eq('id', profile.id);
+    if (!error) {
+        setProfile({ ...profile, balance: newBalance });
+        alert("Daily Bonus of $0.005 Added!");
+    }
   };
 
-  if (loading) return <div style={{background:'#f3bc00', height:'100vh'}}></div>;
+  if (loading || !profile) return <div style={{background:'#f3bc00', height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'black', fontWeight:'bold'}}>Loading Click2Earn...</div>;
 
   return (
     <div className="dash-container">
       <style dangerouslySetInnerHTML={{ __html: `
-        .dash-container { background: #f3bc00; min-height: 100vh; font-family: sans-serif; padding: 20px; color: white; }
-        .header { display: flex; justify-content: space-between; align-items: center; color: black; font-weight: bold; margin-bottom: 40px; }
-        .main-layout { display: flex; gap: 40px; justify-content: center; align-items: flex-start; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; }
-        .clicker-section { text-align: center; flex: 1; min-width: 300px; }
-        .click-btn { width: 220px; height: 220px; background: #00a884; border-radius: 50%; border: 15px solid #25d366; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; overflow: hidden; }
+        .dash-container { background: #f3bc00; min-height: 100vh; font-family: sans-serif; padding: 20px; color: white; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; color: black; font-weight: bold; margin-bottom: 30px; }
+        .main-layout { display: flex; gap: 30px; justify-content: center; align-items: flex-start; max-width: 1000px; margin: 0 auto; flex-wrap: wrap; }
+        .clicker-section { text-align: center; flex: 1; min-width: 280px; }
+        .click-btn { width: 200px; height: 200px; background: #00a884; border-radius: 50%; border: 10px solid #25d366; cursor: pointer; margin: 0 auto 15px; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.2); transition: 0.1s; }
+        .click-btn:active { transform: scale(0.92); }
         .click-btn img { width: 100%; height: 100%; object-fit: cover; }
-        .card { background: #000; border-radius: 30px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
-        .balance-text { font-size: 48px; font-weight: bold; color: #f3bc00; margin: 10px 0; }
-        .btn-green { background: #25d366; color: white; width: 100%; padding: 15px; border-radius: 15px; border: none; font-weight: bold; margin-top: 20px; cursor: pointer; }
-        .action-card { background: #262109; padding: 20px; border-radius: 20px; text-align: center; cursor: pointer; color: #f3bc00; font-weight: bold; border: 1px solid #3d3511; flex: 1; }
+        .card { background: #000; border-radius: 30px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); width: 100%; box-sizing: border-box; }
+        .balance-text { font-size: 42px; font-weight: bold; color: #f3bc00; margin: 10px 0; }
+        .btn-green { background: #25d366; color: white; width: 100%; padding: 15px; border-radius: 15px; border: none; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 16px; }
+        .btn-green:hover { background: #1eb956; }
+        .action-row { display: flex; gap: 10px; margin-top: 15px; }
+        .action-card { background: #262109; padding: 18px; border-radius: 18px; text-align: center; cursor: pointer; color: #f3bc00; font-weight: bold; border: 1px solid #3d3511; flex: 1; }
+        .ref-box { background: #262109; padding: 20px; border-radius: 20px; margin-top: 20px; border: 1px dashed #f3bc00; text-align: center; }
       `}} />
 
       <div className="header">
-        <span>⚡ Click2Earn</span>
-        <div style={{display:'flex', gap:'20px'}}>
-          <span>👤 {profile.username || 'User'}</span>
-          <span onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{cursor:'pointer'}}>Logout</span>
+        <span style={{fontSize:'22px'}}>⚡ Click2Earn</span>
+        <div style={{display:'flex', gap:'15px', alignItems:'center'}}>
+          <span>👤 {profile.username}</span>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{background:'none', border:'1px solid black', padding:'5px 10px', borderRadius:'8px', cursor:'pointer'}}>Logout</button>
         </div>
       </div>
 
       <div className="main-layout">
         <div className="clicker-section">
           <div className="click-btn" onClick={handleClick}>
-            <img src="/click.png" alt="Click" />
+            <img src="/click.png" alt="Click Here" onError={(e) => e.target.src = "https://cdn-icons-png.flaticon.com/512/5968/5968322.png"} />
           </div>
-          <h2 style={{color:'black'}}>Click to earn</h2>
+          <h3 style={{color:'black'}}>Tap to Earn $0.0001</h3>
         </div>
 
-        <div className="stats-section" style={{flex: 1, display:'flex', flexDirection:'column', gap:'20px'}}>
+        <div style={{flex: 1.2, minWidth: '320px'}}>
           <div className="card">
-            <div>💰 Your Balance</div>
+            <div style={{opacity:0.6, fontSize:'14px'}}>💰 Total Balance</div>
             <div className="balance-text">${parseFloat(profile.balance).toFixed(4)}</div>
-            <div style={{display:'flex', gap:'10px'}}>
-              <div style={{background:'#1a1605', padding:'10px', borderRadius:'10px', flex:1}}>
-                <small>Clicks</small><br/><b>{profile.clicks}</b>
-              </div>
+            <div style={{background:'#1a1605', padding:'12px', borderRadius:'12px', display:'inline-block', minWidth:'100px'}}>
+               <small style={{color:'#f3bc00'}}>Total Clicks</small><br/>
+               <b style={{fontSize:'18px'}}>{profile.clicks}</b>
             </div>
-            <button className="btn-green" onClick={() => window.open('YOUR_WHATSAPP_LINK_HERE', '_blank')}>
+            <button className="btn-green" onClick={() => window.open('https://chat.whatsapp.com/YOUR_INVITE_LINK', '_blank')}>
               Joined WhatsApp Group
             </button>
           </div>
 
-          <div style={{display:'flex', gap:'10px'}}>
-            <div className="action-card" onClick={() => alert("Min withdraw is $5.00")}>Withdraw</div>
-            <div className="action-card" onClick={handleBonus}>Bonus</div>
+          <div className="action-row">
+            <div className="action-card" onClick={() => alert("Minimum Withdrawal is $5.00")}>Withdraw</div>
+            <div className="action-card" onClick={handleBonus}>Daily Bonus</div>
+          </div>
+
+          <div className="ref-box">
+             <div style={{fontSize:'13px', color:'#f3bc00', marginBottom:'10px'}}>Invite friends to earn $0.001 per sign-up!</div>
+             <button style={{background:'#f3bc00', color:'black', border:'none', padding:'10px 20px', borderRadius:'10px', fontWeight:'bold', cursor:'pointer'}} 
+               onClick={() => {
+                 navigator.clipboard.writeText(`https://clicknearn.netlify.app?ref=${profile.id}`);
+                 alert("Referral Link Copied!");
+               }}>
+               Copy Link
+             </button>
           </div>
         </div>
       </div>
